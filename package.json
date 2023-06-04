@@ -4,8 +4,15 @@
   "description": "throwing some specs on how to find the optimal solutions for SFH/APT investment deals in a given area",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "ts-node reader.ts"
   },
   "author": "steven4354",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "csv-parser": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.2.5"
+  }
 }
