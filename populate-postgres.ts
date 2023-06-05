@@ -49,14 +49,15 @@ const insertRowQuery = `
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16, $17, $18, $19,
     $20, $21
-  );
+  )
+  ON CONFLICT (address) DO NOTHING;
 `;
 
 const createTableQuery = `
 CREATE TABLE IF NOT EXISTS redfin (
   sale_type VARCHAR(255),
   property_type VARCHAR(255),
-  address VARCHAR(255),
+  address VARCHAR(255) UNIQUE,
   city VARCHAR(255),
   state_or_province VARCHAR(255),
   zip_or_postal_code VARCHAR(255),
@@ -78,52 +79,68 @@ CREATE TABLE IF NOT EXISTS redfin (
 );
 `;
 
-async function processCsvFile(filePath: string) {
-    const fileStream = createReadStream(filePath).pipe(csv());
-  
-    for await (const row of Readable.from(fileStream)) {
-        // log row
-        console.log(row)
+const createBlackListAddressQuery = `
+CREATE TABLE IF NOT EXISTS blacklist_address (
+  address VARCHAR(255)
+)
+`;
 
-        const values = [
-            row["SALE TYPE"],
-            row["PROPERTY TYPE"],
-            row["ADDRESS"],
-            row["CITY"],
-            row["STATE OR PROVINCE"],
-            row["ZIP OR POSTAL CODE"],
-            row["PRICE"],
-            row["BEDS"],
-            row["BATHS"],
-            row["LOCATION"],
-            row["SQUARE FEET"],
-            row["LOT SIZE"],
-            row["YEAR BUILT"],
-            row["DAYS ON MARKET"],
-            row["$/SQUARE FEET"],
-            row["HOA/MONTH"],
-            row["STATUS"],
-            row[
-              "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)"
-            ],
-            row["SOURCE"],
-            row["LATITUDE"],
-            row["LONGITUDE"],
-        ];
-  
-      try {
-        await client.query(insertRowQuery, values);
-      } catch (err) {
-        throw err;
-      }
+const createReviewsTableQuery = `
+CREATE TABLE IF NOT EXISTS reviews_address (
+  address VARCHAR(255),
+  reviews_link VARCHAR(255)
+)
+`;
+
+async function processCsvFile(filePath: string) {
+  const fileStream = createReadStream(filePath).pipe(csv());
+
+  for await (const row of Readable.from(fileStream)) {
+    // log row
+    console.log(row);
+
+    const values = [
+      row["SALE TYPE"],
+      row["PROPERTY TYPE"],
+      row["ADDRESS"],
+      row["CITY"],
+      row["STATE OR PROVINCE"],
+      row["ZIP OR POSTAL CODE"],
+      row["PRICE"],
+      row["BEDS"],
+      row["BATHS"],
+      row["LOCATION"],
+      row["SQUARE FEET"],
+      row["LOT SIZE"],
+      row["YEAR BUILT"],
+      row["DAYS ON MARKET"],
+      row["$/SQUARE FEET"],
+      row["HOA/MONTH"],
+      row["STATUS"],
+      row[
+        "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING)"
+      ],
+      row["SOURCE"],
+      row["LATITUDE"],
+      row["LONGITUDE"],
+    ];
+
+    try {
+      await client.query(insertRowQuery, values);
+    } catch (err) {
+      throw err;
     }
-  
-    console.log('CSV file successfully processed');
   }
-  
+
+  console.log("CSV file successfully processed");
+}
 
 const run = async () => {
   await client.query(createTableQuery);
+  await client.query(createBlackListAddressQuery);
+  await client.query(createReviewsTableQuery);
+
+  // inserts redfin csv into postgres
   await processCsvFile(csvFilePath);
 };
 

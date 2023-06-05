@@ -33,19 +33,27 @@ score_data AS (
 		distance_data
 		JOIN location_data USING (address)
 		JOIN redfin USING (address)
+	WHERE
+		NOT EXISTS (
+			SELECT 1
+			FROM blacklist_address
+			WHERE location_data.address ILIKE '%' || blacklist_address.address || '%'
+		)
 )
 SELECT
-	address,
-	city,
-	state_or_province,
-	zip_or_postal_code,
-	distance,
-	price_difference,
-	price_per_sqft_difference,
-	(distance * 0.5) + (COALESCE(price_difference, 0) * 0.3) + (price_per_sqft_difference * 0.2) AS score,
-	url
+	score_data.address,
+	score_data.city,
+	score_data.state_or_province,
+	score_data.zip_or_postal_code,
+	score_data.distance,
+	score_data.price_difference,
+	score_data.price_per_sqft_difference,
+	(score_data.distance * 0.5) + (COALESCE(score_data.price_difference, 0) * 0.3) + (score_data.price_per_sqft_difference * 0.2) AS score,
+	score_data.url,
+	reviews_address.reviews_link
 FROM
 	score_data
+	LEFT JOIN reviews_address ON score_data.address ILIKE reviews_address.address
 ORDER BY
 	score ASC
 LIMIT 10;
