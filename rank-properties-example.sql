@@ -6,22 +6,16 @@ WITH location_data AS (
 		zip_or_postal_code,
 		CAST(latitude AS FLOAT) AS latitude,
 		CAST(longitude AS FLOAT) AS longitude,
-		CAST(NULLIF(price,
-				'') AS INTEGER) AS price,
-		CAST(NULLIF(square_feet,
-				'') AS INTEGER) AS square_feet,
-		(CAST(NULLIF(price,
-					'') AS INTEGER) / CAST(NULLIF(square_feet,
-					'') AS INTEGER)) AS price_per_sqft
+		CAST(NULLIF(price, '') AS INTEGER) AS price,
+		CAST(NULLIF(square_feet, '') AS INTEGER) AS square_feet,
+		(CAST(NULLIF(price, '') AS INTEGER) / CAST(NULLIF(square_feet, '') AS INTEGER)) AS price_per_sqft
 	FROM
 		redfin
 ),
 distance_data AS (
 	SELECT
 		address,
-		SQRT(POW(CAST(latitude AS FLOAT) - 29.716944,
-				2) + POW(CAST(longitude AS FLOAT) - (- 122.4194),
-				2)) AS distance
+		SQRT(POW(CAST(latitude AS FLOAT) - 29.716944, 2) + POW(CAST(longitude AS FLOAT) - (- 122.4194), 2)) AS distance
 	FROM
 		location_data
 ),
@@ -32,12 +26,13 @@ score_data AS (
 		location_data.state_or_province,
 		location_data.zip_or_postal_code,
 		distance,
-		ABS(CAST(price AS INTEGER) - 1) AS price_difference,
-		ABS(COALESCE(price_per_sqft,
-				0) - 1) AS price_per_sqft_difference
+		ABS(CAST(location_data.price AS INTEGER) - 1) AS price_difference,
+		ABS(COALESCE(location_data.price_per_sqft, 0) - 1) AS price_per_sqft_difference,
+		redfin.url
 	FROM
 		distance_data
 		JOIN location_data USING (address)
+		JOIN redfin USING (address)
 )
 SELECT
 	address,
@@ -47,7 +42,8 @@ SELECT
 	distance,
 	price_difference,
 	price_per_sqft_difference,
-	(distance * 0.5) + (COALESCE(price_difference, 0) * 0.3) + (price_per_sqft_difference * 0.2) AS score
+	(distance * 0.5) + (COALESCE(price_difference, 0) * 0.3) + (price_per_sqft_difference * 0.2) AS score,
+	url
 FROM
 	score_data
 ORDER BY
