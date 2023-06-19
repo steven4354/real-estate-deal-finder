@@ -5,8 +5,8 @@ import dotenv from "dotenv";
 import { Readable } from "stream";
 dotenv.config();
 
-const csvFilePath = "./dataset/redfin_2023-06-04-16-16-37.csv";
-const insertedFolderPath = "./dataset/inserted";
+const csvFilePath = "../dataset/redfin_2023-06-04-16-16-37.csv";
+const insertedFolderPath = "../dataset/inserted";
 
 const client = new pg.Pool({
   user: process.env.DATABASE_USER,

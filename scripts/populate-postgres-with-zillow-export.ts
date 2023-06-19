@@ -5,8 +5,8 @@ import dotenv from "dotenv";
 import { Readable } from "stream";
 dotenv.config();
 
-const csvFilePath = "./dataset/zillow-katy-export.csv";
-const insertedFolderPath = "./dataset/inserted";
+const csvFilePath = "../dataset/sugar-land-outskirts-small.csv";
+const insertedFolderPath = "../dataset/inserted";
 
 const client = new pg.Pool({
   user: process.env.DATABASE_USER,
@@ -57,6 +57,16 @@ async function processCsvFile(filePath: string) {
   const fileStream = createReadStream(filePath).pipe(csv());
 
   for await (const row of Readable.from(fileStream)) {
+    // if row property type is not Single Family, skip
+    if (row["Property type"] !== "Single Family") {
+      continue;
+    }
+
+    // if property address contains UNIT, skip
+    if (row["Street address"].includes("UNIT")) {
+      continue;
+    }
+
     // log row
     console.log(row);
 
