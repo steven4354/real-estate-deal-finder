@@ -1,20 +1,25 @@
-// scraper.ts
 import { promises as fs } from 'fs';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import cheerio from 'cheerio';
+const path = require('path');
 
 puppeteer.use(StealthPlugin());
 
 const url = 'https://www.niche.com/places-to-live/z/77020/';
-const outputFilePath = '../niche.com/output.html';
+const outputFilePath = path.join(process.cwd(), './niche.com/output.html');
 
-fs.readFile(inputFilePath, 'utf8', (err, data) => {
-  if (err) {
-    console.error(`Error reading file: ${err}`);
-    return;
-  }
+export async function fetchNicheZipcode(zipcode: string) {
+  return await fetchAndSaveHTML(`https://www.niche.com/places-to-live/z/${zipcode}/`, outputFilePath)
+}
+async function fetchAndSaveHTML(url: string, outputFilePath: string) {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
 
-  const $ = cheerio.load(data);
+  await page.goto(url);
+
+  const html = await page.content();
+  const $ = cheerio.load(html);
 
   // Remove <script> and <style> tags
   $('script, style').remove();
@@ -27,13 +32,15 @@ fs.readFile(inputFilePath, 'utf8', (err, data) => {
   // Extract useful text from the HTML
   const text = $('body').text().trim();
 
-  fs.writeFile(outputFilePath, text, 'utf8', (err) => {
-    if (err) {
-      console.error(`Error writing file: ${err}`);
-      return;
-    }
+  try {
+    await fs.writeFile(outputFilePath, text, 'utf8');
     console.log(`Successfully extracted useful text.`);
-  });
-});
+  } catch (err) {
+    console.error(`Error writing file: ${err}`);
+  }
+
+  await browser.close();
+  return outputFilePath
+}
 
 fetchAndSaveHTML(url, outputFilePath);
