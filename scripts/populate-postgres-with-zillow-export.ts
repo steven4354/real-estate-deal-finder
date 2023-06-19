@@ -3,9 +3,20 @@ import csv from "csv-parser";
 import pg from "pg";
 import dotenv from "dotenv";
 import { Readable } from "stream";
+import { fetchNicheZipcode } from "./extract-niche-html";
+import { cleanHtml } from "./clean-html";
+import { Configuration, OpenAIApi } from "openai";
+const path = require('path');
 dotenv.config();
 
-const csvFilePath = "../dataset/sugar-land-outskirts-small.csv";
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const openai = new OpenAIApi(configuration);
+
+
+const csvFilePath = path.join(process.cwd(), "./dataset/sugar-land-outskirts-small.csv");
 const insertedFolderPath = "../dataset/inserted";
 
 const client = new pg.Pool({
@@ -95,7 +106,59 @@ async function processCsvFile(filePath: string) {
     ];
 
     try {
+      // insert into zillow table
       await client.query(insertRowQuery, values);
+
+      try {
+        // check if zipcode already exists in the niche table
+        const existsResponse = await client.query("SELECT COUNT(*) FROM niche WHERE zip=$1", [row["Zip"]])
+        if (existsResponse.rows[0].count <= 0) {
+          // it doesnt exist 
+          console.log("zip code doesn't exists in niche table: ", row["Zip"])
+          // extract niche data
+          const filePath = await fetchNicheZipcode(row["Zip"])
+          const text = await cleanHtml(filePath)
+
+          // open ai request
+          const openAiResponse = await openai.createCompletion({
+            model: "text-davinci-003",
+            prompt: `below is a website showing real estate data for a given zip code. what is the median household income for this zip code? what is the score?: ${text}`,
+            max_tokens: 2048,
+          });
+
+          const link = `https://www.niche.com/places-to-live/z/${row["Zip"]}/`
+          const openApiText = openAiResponse.data.choices[0].text
+          let medianIncome: any, score: any
+          // Extracting the median income
+          var incomeRegex = /\$([0-9,]+)/;
+          var incomeMatch = openApiText?.match(incomeRegex);
+          if (incomeMatch && incomeMatch.length > 1) {
+            medianIncome = parseInt(incomeMatch[1].replace(',', ''));
+            console.log("Median Income: " + medianIncome);
+          } else {
+            console.log("Median income not found in response");
+          }
+
+          // Extracting the score
+          var scoreRegex = /score is (\w[\+\-]?)/;
+          var scoreMatch = openApiText?.match(scoreRegex);
+          if (scoreMatch && scoreMatch.length > 1) {
+            score = scoreMatch[1];
+            console.log("Score: " + score);
+          } else {
+            console.log("Score not found in response");
+          }
+
+          if (score && medianIncome) {
+            const insertNicheQuery = "INSERT INTO niche(zip,link,score,median_income) VALUES ($1,$2,$3,$4)"
+            await client.query(insertNicheQuery,[row["Zip"],link,score,medianIncome])
+          }
+        } else {
+          console.log("zip code exits:", row["Zip"])
+        }
+      } catch (e) {
+        console.log({ e })
+      }
     } catch (err) {
       throw err;
     }
