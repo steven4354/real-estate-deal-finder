@@ -1,9 +1,12 @@
-// removeScriptsAndStyles.ts
-import fs from 'fs';
-import cheerio from 'cheerio';
+// scraper.ts
+import { promises as fs } from 'fs';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-const inputFilePath = 'niche.com/77020 ZIP Code, Texas - Niche.html';
-const outputFilePath = 'niche.com/output.txt';
+puppeteer.use(StealthPlugin());
+
+const url = 'https://www.niche.com/places-to-live/z/77020/';
+const outputFilePath = '../niche.com/output.html';
 
 fs.readFile(inputFilePath, 'utf8', (err, data) => {
   if (err) {
@@ -14,7 +17,7 @@ fs.readFile(inputFilePath, 'utf8', (err, data) => {
   const $ = cheerio.load(data);
 
   // Remove <script> and <style> tags
-  $('script, style, header, footer').remove();
+  $('script, style').remove();
 
   // Replace <br>, <p>, <div>, and <li> tags with line breaks
   $('br, p, div, li').each((_, el) => {
@@ -22,10 +25,7 @@ fs.readFile(inputFilePath, 'utf8', (err, data) => {
   });
 
   // Extract useful text from the HTML
-  let text = $('body').text().trim();
-
-  // Replace multiple consecutive line breaks with a single line break
-  text = text.replace(/\n{2,}/g, '\n');
+  const text = $('body').text().trim();
 
   fs.writeFile(outputFilePath, text, 'utf8', (err) => {
     if (err) {
@@ -35,3 +35,5 @@ fs.readFile(inputFilePath, 'utf8', (err, data) => {
     console.log(`Successfully extracted useful text.`);
   });
 });
+
+fetchAndSaveHTML(url, outputFilePath);
