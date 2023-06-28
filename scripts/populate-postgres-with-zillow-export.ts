@@ -120,38 +120,48 @@ async function processCsvFile(filePath: string) {
           const text = await cleanHtml(filePath)
 
           // open ai request
-          const openAiResponse = await openai.createCompletion({
-            model: "text-davinci-003",
-            prompt: `below is a website showing real estate data for a given zip code. what is the median household income for this zip code? what is the score?: ${text}`,
+          const openAiResponse = await openai.createChatCompletion({
+            model: "gpt-4-0613",
             max_tokens: 2048,
+            messages: [{ role: "user", content: `below is a website showing real estate data for a given zip code. what is the median household income for this zip code? what is the score?: \n\n ${text}` }],
+            functions: [
+              {
+                name: "calculate_zipcode_popularity",
+                description: "determine the popularity of a location based on the median household income for the given zip code and the score for the given zip code",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    median_income: {
+                      type: "string",
+                      description: "the median household income for the given zipcode"
+                    },
+                    score: {
+                      type: "string",
+                      description: "the score for the given zipcode, i.e A+, A, B -, C, D+, etc"
+                    }
+                  },
+                  required: ["median_income", "score"]
+                }
+              }
+            ],
+            function_call: { name: "calculate_zipcode_popularity" }
           });
 
           const link = `https://www.niche.com/places-to-live/z/${row["Zip"]}/`
-          const openApiText = openAiResponse.data.choices[0].text
-          let medianIncome: any, score: any
-          // Extracting the median income
-          var incomeRegex = /\$([0-9,]+)/;
-          var incomeMatch = openApiText?.match(incomeRegex);
-          if (incomeMatch && incomeMatch.length > 1) {
-            medianIncome = parseInt(incomeMatch[1].replace(',', ''));
-            console.log("Median Income: " + medianIncome);
-          } else {
-            console.log("Median income not found in response");
-          }
+          let openApiResponse = openAiResponse.data.choices[0].message?.function_call?.arguments as any
 
-          // Extracting the score
-          var scoreRegex = /score is (\w[\+\-]?)/;
-          var scoreMatch = openApiText?.match(scoreRegex);
-          if (scoreMatch && scoreMatch.length > 1) {
-            score = scoreMatch[1];
-            console.log("Score: " + score);
-          } else {
-            console.log("Score not found in response");
-          }
+          console.log({ openApiResponse })
+          openApiResponse = JSON.parse(openApiResponse)
+          console.log({ openApiResponse })
+
+          const medianIncome = openApiResponse.median_income
+          const score = openApiResponse.score
+
+          
 
           if (score && medianIncome) {
             const insertNicheQuery = "INSERT INTO niche(zip,link,score,median_income) VALUES ($1,$2,$3,$4)"
-            await client.query(insertNicheQuery,[row["Zip"],link,score,medianIncome])
+            await client.query(insertNicheQuery, [row["Zip"], link, score, medianIncome])
           }
         } else {
           console.log("zip code exits:", row["Zip"])
