@@ -6,11 +6,10 @@ const path = require('path');
 
 puppeteer.use(StealthPlugin());
 
-const url = 'https://www.niche.com/places-to-live/z/77020/';
 const outputFilePath = path.join(process.cwd(), './niche.com/output.html');
 
-export async function fetchNicheZipcode(zipcode: string) {
-  return await fetchAndSaveHTML(`https://www.niche.com/places-to-live/z/${zipcode}/`, outputFilePath)
+export async function fetchNicheZipcode(url: string) {
+  return await fetchAndSaveHTML(url, outputFilePath)
 }
 async function fetchAndSaveHTML(url: string, outputFilePath: string) {
   const browser = await puppeteer.launch();
@@ -43,4 +42,4 @@ async function fetchAndSaveHTML(url: string, outputFilePath: string) {
   return outputFilePath
 }
 
-fetchAndSaveHTML(url, outputFilePath);
+fetchAndSaveHTML('https://www.niche.com/places-to-live/z/77020/', outputFilePath);
